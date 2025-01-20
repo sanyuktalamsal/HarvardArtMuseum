@@ -7,55 +7,33 @@
 
 import SwiftUI
 
-
-// Exhibition Detail View
 struct ExhibitionDetailView: View {
     let exhibition: Exhibition
     @State private var artworks: [Artwork] = []
     @State private var isLoading = false
     @State private var error: String?
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Exhibition Header
-                if let imageUrl = exhibition.primaryimageurl,
-                   let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxHeight: 200)
-                            .clipped()
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 200)
-                    }
-                }
-                
+                // Exhibition Title and Description
                 VStack(alignment: .leading, spacing: 8) {
                     Text(exhibition.title)
                         .font(.title2)
                         .fontWeight(.bold)
-                    
-                    Text("\(exhibition.begindate) - \(exhibition.enddate)")
-                        .foregroundStyle(.secondary)
-                    
+                        .foregroundStyle(.primary)
+
                     if let description = exhibition.description {
                         Text(description)
                             .padding(.top, 4)
+                            .lineLimit(3)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.horizontal)
-                
-                // Artworks Grid
-                Text("Featured Artworks")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal)
-                    .padding(.top)
-                
+
+                // Loading, Error, or Artworks
                 if isLoading {
                     ProgressView()
                         .frame(maxWidth: .infinity, minHeight: 200)
@@ -64,12 +42,11 @@ struct ExhibitionDetailView: View {
                 } else if artworks.isEmpty {
                     ContentUnavailableView("No artworks found", systemImage: "photo.on.rectangle.angled")
                 } else {
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 160), spacing: 16)
-                    ], spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) { // Remove separation between items
                         ForEach(artworks) { artwork in
                             NavigationLink(destination: ArtworkDetailView(artwork: artwork)) {
                                 ArtworkGridItem(artwork: artwork)
+                                    .foregroundStyle(.primary) // Ensure consistent text color
                             }
                         }
                     }
@@ -82,11 +59,11 @@ struct ExhibitionDetailView: View {
             await loadArtworks()
         }
     }
-    
+
     private func loadArtworks() async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             artworks = try await ArtworkService.fetchArtworksForExhibition(id: exhibition.id)
         } catch {
@@ -95,61 +72,78 @@ struct ExhibitionDetailView: View {
     }
 }
 
-// Artwork Grid Item
 struct ArtworkGridItem: View {
     let artwork: Artwork
     @EnvironmentObject var favoritesManager: FavoritesManager
-    
+
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading) {
-    
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(artwork.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .lineLimit(2)
-                    
+        HStack { // Use VStack for the text content and image
+            ZStack(alignment: .topTrailing) { // ZStack only for the heart button over the image
+                // Artwork Image
+                if let imageUrl = artwork.images?.first?.baseimageurl,
+                   let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 100, height: 100) // Image size
+                            .clipped()
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 100, height: 100)
+                    }
+                }
+
+                // Heart Button on top of the image
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        favoritesManager.toggleFavorite(artworkId: artwork.id)
+                    }
+                }) {
+                    Image(systemName: favoritesManager.isFavorite(artworkId: artwork.id) ? "heart.fill" : "heart")
+                        .font(.system(size: 20))
+                        .foregroundStyle(favoritesManager.isFavorite(artworkId: artwork.id) ? .red : .gray)
+                        .padding(8)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+                .padding(8) // Padding for the heart button from the top-right corner
+            }
+
+            // Artwork Details (Title, Artist, Date)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(artwork.title)
+                    .font(.headline)
+                    .lineLimit(2)
+
+                HStack(spacing: 4) {
                     if let artist = artwork.people?.first?.name {
                         Text(artist)
                             .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
                     }
-                    
+
                     if let date = artwork.dated {
-                        Text(date)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
+                        Text("· \(date)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-            }
-            .background(Color(.systemBackground))
-            .cornerRadius(10)
-            .shadow(radius: 2)
-            
-            // Heart button
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    favoritesManager.toggleFavorite(artworkId: artwork.id)
+
+                if let description = artwork.description {
+                    Text(description)
+                        .font(.caption)
+                        .lineLimit(3)
+                        .foregroundStyle(.secondary)
                 }
-            }) {
-                Image(systemName: favoritesManager.isFavorite(artworkId: artwork.id) ? "heart.fill" : "heart")
-                    .font(.system(size: 15))
-                    .foregroundStyle(favoritesManager.isFavorite(artworkId: artwork.id) ? .red : .gray)
-                    .padding(8)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
             }
-            .padding(8)
+            .padding(.horizontal)
         }
+        .padding(.vertical, 4) // Slight spacing between artworks
+        .frame(height: 160) // You can adjust the height here based on your design needs
     }
 }
-
 
 // Artwork Detail View
 struct ArtworkDetailView: View {
@@ -179,35 +173,30 @@ struct ArtworkDetailView: View {
                     
                     if let artist = artwork.people?.first {
                         HStack {
-                            Text(artist.name)
+                            Text("Artist: \(artist.name)")
                                 .font(.headline)
-                            if let role = artist.role {
-                                Text("(\(role))")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
+                            
                         }
                     }
                     
                     if let date = artwork.dated {
-                        Text(date)
+                        Text("Date: \(date)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     
                     if let medium = artwork.medium {
-                        Text(medium)
+                        Text("Medium: \(medium)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     
                     if let description = artwork.description {
-                        Text("About")
+                        Text("Description: \(description)")
                             .font(.headline)
                             .padding(.top)
+                            .lineLimit(5)
                         
-                        Text(description)
-                            .font(.body)
                     }
                 }
                 .padding()

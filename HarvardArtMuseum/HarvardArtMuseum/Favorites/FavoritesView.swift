@@ -4,8 +4,8 @@
 //
 //  Created by Sanyukta Lamsal on 1/19/25.
 //
-
 import SwiftUI
+
 struct FavoritesView: View {
     @EnvironmentObject var favoritesManager: FavoritesManager
     @State private var favoriteArtworks: [Artwork] = []
@@ -31,15 +31,60 @@ struct FavoritesView: View {
                 if favoriteArtworks.isEmpty {
                     emptyStateView
                 } else if filteredArtworks.isEmpty {
-                    ContentUnavailableView("No matches found",
-                        systemImage: "magnifyingglass")
+                    ContentUnavailableView("No matches found", systemImage: "magnifyingglass")
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [
-                            GridItem(.adaptive(minimum: 160), spacing: 16)
-                        ], spacing: 16) {
+                        VStack(spacing: 16) {
                             ForEach(filteredArtworks) { artwork in
-                                ArtworkGridItem(artwork: artwork)
+                                HStack(alignment: .top) {
+                                    // Artwork Image
+                                    if let imageUrl = artwork.images?.first?.baseimageurl,
+                                       let url = URL(string: imageUrl) {
+                                        AsyncImage(url: url) { image in
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: 100, height: 100)
+                                                .cornerRadius(8)
+                                                .clipped()
+                                        } placeholder: {
+                                            Rectangle()
+                                                .fill(Color.gray.opacity(0.2))
+                                                .frame(width: 100, height: 100)
+                                        }
+                                    }
+                                    
+                                    // Artwork Details
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(artwork.title)
+                                            .font(.headline)
+                                            .lineLimit(2)
+                                        
+                                        if let people = artwork.people, !people.isEmpty || artwork.dated != nil {
+                                            HStack {
+                                                if let people = artwork.people, !people.isEmpty {
+                                                    Text(people.map { $0.name }.joined(separator: ", "))
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                
+                                                if let date = artwork.dated {
+                                                    Text(", \(date)") // Adding a comma between artist and date
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                        }
+                                        
+                                        if let description = artwork.description {
+                                            Text(description)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading) // Ensure text is aligned left
+                                }
+                                .padding([.horizontal, .vertical], 8)
                             }
                         }
                         .padding()
@@ -47,7 +92,7 @@ struct FavoritesView: View {
                 }
             }
             .navigationTitle("Favorites")
-            .searchable(text: $searchText, prompt: "Search favorites...")
+            .searchable(text: $searchText, prompt: "Search for an artwork")
         }
         .task {
             await loadFavoriteArtworks()
@@ -55,22 +100,28 @@ struct FavoritesView: View {
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "heart.slash")
-                .font(.system(size: 60))
-                .foregroundColor(.gray)
+        VStack(spacing: 16) {
+            Text("You have no favorited artworks.")
+                .font(.title3)
+                .foregroundStyle(.secondary)
             
-            Text("No Favorite Artworks")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Start exploring artworks and add them to your favorites!")
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            Button(action: {
+                // Action when button is pressed
+            }) {
+                NavigationLink(destination: BrowseView()) {
+                    Text("Browse Artworks")
+                        .font(.headline)
+                        .padding()
+                        .foregroundColor(.white)
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                        .frame(maxWidth: .infinity)
+                }
+            }
         }
         .padding()
     }
-    
+
     private func loadFavoriteArtworks() async {
         isLoading = true
         var loadedArtworks: [Artwork] = []
@@ -89,6 +140,7 @@ struct FavoritesView: View {
         isLoading = false
     }
 }
+
 #Preview {
     FavoritesView()
 }
