@@ -8,17 +8,37 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var viewModel = ExhibitionViewModel()
+    @StateObject private var favoritesManager = FavoritesManager()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            BrowseView(viewModel: viewModel)
+                .environmentObject(favoritesManager)
+
+                .tabItem {
+                    Label("Browse", systemImage: "photo.artframe")
+                }
+            
+       
+            FavoritesView()
+                           .environmentObject(favoritesManager)
+                           .tabItem {
+                               Label("Favorites", systemImage: "heart.fill")
+                           }
+            SearchView()
+                            .environmentObject(favoritesManager)
+                            .tabItem {
+                                Label("Search", systemImage: "magnifyingglass")
+                            }
+            
+            
         }
-        .padding()
     }
 }
 
 #Preview {
-    ContentView()
+
 }
+
+
